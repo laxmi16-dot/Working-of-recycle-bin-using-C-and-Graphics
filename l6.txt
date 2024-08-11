@@ -1,0 +1,187 @@
+#include <graphics.h>
+#include <conio.h>
+#include <dos.h>
+#include <windows.h>
+
+#define ESCAPE 27
+
+void drawRecycleBin(int x, int y) {
+    setcolor(BLUE);
+    rectangle(x, y, x + 60, y + 90); // Outer rectangle
+    line(x + 15, y, x + 45, y); // Top line
+    line(x + 15, y, x + 10, y + 10); // Top left line
+    line(x + 45, y, x + 50, y + 10); // Top right line
+    rectangle(x + 10, y + 10, x + 50, y + 80); // Inner rectangle
+    setfillstyle(SOLID_FILL, LIGHTBLUE);
+    floodfill(x + 30, y + 50, BLUE);
+
+    setcolor(WHITE);
+    circle(x + 30, y + 45, 10);
+    line(x + 30, y + 35, x + 30, y + 55);
+    line(x + 20, y + 45, x + 40, y + 45);
+
+    setcolor(WHITE);
+    outtextxy(x + 20, y + 95, "Bin");
+}
+
+void drawFileIcon(int x, int y, char* label) {
+    setcolor(YELLOW);
+    rectangle(x, y, x + 50, y + 60); // Outer rectangle
+    line(x, y + 10, x + 10, y); // Top left slant
+    line(x + 10, y, x + 40, y); // Top horizontal line
+    line(x + 40, y, x + 50, y + 10); // Top right slant
+    line(x, y + 10, x + 50, y + 10); // Inner horizontal line
+    setfillstyle(SOLID_FILL, YELLOW);
+    floodfill(x + 25, y + 30, YELLOW);
+
+    setcolor(WHITE);
+    line(x + 10, y + 20, x + 10, y + 50);
+    line(x + 20, y + 20, x + 20, y + 50);
+
+    setcolor(WHITE);
+    outtextxy(x + 10, y + 65, label);
+}
+
+void showMessage(char *message, int delayTime) {
+    cleardevice();
+    setcolor(WHITE);
+    outtextxy(getmaxx() / 2 - textwidth(message) / 2, getmaxy() / 2, message);
+    delay(delayTime);
+}
+
+int openRecycleBin(int fileInBin[], int restored[], char* labels[], int numFiles) {
+    int gd = DETECT, gm;
+    initgraph(&gd, &gm, "");
+
+    cleardevice();
+    setcolor(WHITE);
+    outtextxy(10, 10, "Recycle Bin");
+    outtextxy(10, 30, "Double click on a file to restore it.");
+    outtextxy(10, 50, "Press ESC to return to the main window.");
+
+    int yOffset = 100;
+    for (int i = 0; i < numFiles; i++) {
+        if (fileInBin[i]) {
+            drawFileIcon(100, yOffset, labels[i]);
+            yOffset += 80;
+        }
+    }
+
+    int fileClicked = -1;
+    while (1) {
+        if (kbhit()) {
+            char key = getch();
+            if (key == ESCAPE) {
+                closegraph();
+                return -1; // Returning to main window
+            }
+        }
+
+        if (ismouseclick(WM_LBUTTONDBLCLK)) {
+            int mouseX, mouseY;
+            getmouseclick(WM_LBUTTONDBLCLK, mouseX, mouseY);
+            yOffset = 100;
+            for (int i = 0; i < numFiles; i++) {
+                if (fileInBin[i] && mouseX >= 100 && mouseX <= 150 && mouseY >= yOffset && mouseY <= yOffset + 60) {
+                    fileClicked = i;
+                    break;
+                }
+                yOffset += 80;
+            }
+            if (fileClicked != -1) {
+                restored[fileClicked] = 1;
+                fileInBin[fileClicked] = 0;
+                showMessage("File restored.", 2000);
+                closegraph();
+                return fileClicked; // Returning index of restored file
+            }
+        }
+
+        delay(100); // Delay to control frame rate
+    }
+}
+
+int main() {
+    int gd = DETECT, gm;
+    int xRecycleBin = 100, yRecycleBin = 100;
+    int xFileIcons[4] = {300, 400, 300, 400};
+    int yFileIcons[4] = {100, 100, 200, 200};
+    int initialXFileIcons[4] = {300, 400, 300, 400};
+    int initialYFileIcons[4] = {100, 100, 200, 200};
+    int fileInBin[4] = {0, 0, 0, 0}; // Flags to track if files are in the recycle bin
+    int dragging[4] = {0, 0, 0, 0}; // Flags to track if files are being dragged
+    int restored[4] = {0, 0, 0, 0}; // Flags to track if files are restored
+    char* labels[4] = {"Folder1", "Folder2", "Folder3", "Folder4"};
+
+    initgraph(&gd, &gm, "");
+
+    while (1) {
+        cleardevice();
+
+        drawRecycleBin(xRecycleBin, yRecycleBin);
+        
+        for (int i = 0; i < 4; i++) {
+            if (!fileInBin[i]) {
+                drawFileIcon(xFileIcons[i], yFileIcons[i], labels[i]);
+            }
+        }
+
+        if (kbhit()) {
+            char key = getch();
+            if (key == ESCAPE) {
+                break;
+            }
+        }
+
+        if (ismouseclick(WM_LBUTTONDOWN)) {
+            int mouseX, mouseY;
+            getmouseclick(WM_LBUTTONDOWN, mouseX, mouseY);
+            for (int i = 0; i < 4; i++) {
+                if (mouseX >= xFileIcons[i] && mouseX <= xFileIcons[i] + 50 && mouseY >= yFileIcons[i] && mouseY <= yFileIcons[i] + 60) {
+                    dragging[i] = 1;
+                }
+            }
+        }
+
+        if (ismouseclick(WM_LBUTTONUP)) {
+            for (int i = 0; i < 4; i++) {
+                if (dragging[i]) {
+                    dragging[i] = 0;
+                    if (xFileIcons[i] >= xRecycleBin && xFileIcons[i] + 50 <= xRecycleBin + 60 &&
+                        yFileIcons[i] >= yRecycleBin && yFileIcons[i] + 60 <= yRecycleBin + 90) {
+                        fileInBin[i] = 1;
+                        showMessage("File moved to Recycle Bin.", 2000);
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < 4; i++) {
+            if (dragging[i]) {
+                int mouseX = mousex();
+                int mouseY = mousey();
+                xFileIcons[i] = mouseX - 25;
+                yFileIcons[i] = mouseY - 30;
+            }
+        }
+
+        if (ismouseclick(WM_LBUTTONDBLCLK)) {
+            int mouseX, mouseY;
+            getmouseclick(WM_LBUTTONDBLCLK, mouseX, mouseY);
+            if (mouseX >= xRecycleBin && mouseX <= xRecycleBin + 60 && mouseY >= yRecycleBin && mouseY <= yRecycleBin + 90) {
+                int restoredFileIndex = openRecycleBin(fileInBin, restored, labels, 4);
+                if (restoredFileIndex != -1) {
+                    xFileIcons[restoredFileIndex] = initialXFileIcons[restoredFileIndex];
+                    yFileIcons[restoredFileIndex] = initialYFileIcons[restoredFileIndex];
+                    // Reopen the main window
+                    initgraph(&gd, &gm, "");
+                }
+            }
+        }
+
+        delay(100);
+    }
+
+    closegraph();
+    return 0;
+}
